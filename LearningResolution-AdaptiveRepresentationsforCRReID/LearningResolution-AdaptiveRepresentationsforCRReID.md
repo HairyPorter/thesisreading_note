@@ -47,8 +47,16 @@ resolution-adaptive representations与resolution-invariant features对比：`How
 
 **motivation:**`a HR image should contain all the information conveyed in the LR image, but also extra information from the higher resolution`
 
-we define m sub-vectors {$v_k$ }, k = 1, · · · , m
-一个可变长度的特征，用多个可变维度向量表示；每个子向量$v_k$表示对应分辨率k的特征
+When one compares a HR image and a LR image, the comparison should only be based on the shared part
+
+In CRReID, a query image could have different resolutions, thus the above strategy will result in different representation lengths, i.e., the higher resolution of the query is, the more information that can be shared with the HR gallery images, and thus the longer dimension of the representation is.
+
+In our implementation, we define m sub-vectors $\{\mathbf{v}_k\}, k = 1, \cdots , m$
+
+> 这里的k与之前的分辨率比例k不一样；这里的k表示分辨率水平，k越大对应的分辨率越高
+
+Varying-Length Resolution-Adaptive Representations 用下面的$\mathbf{z}$表示
+
 $$
 \begin{align*}
 \mathbf{z}_p&=cat(\mathbf{v}_1^p,\cdots,\mathbf{v}_k^p,\mathbf{v}_{k+1:m}^p)\\
@@ -59,16 +67,41 @@ dis(x_p,x_g)&=\lVert \mathbf{z}_p-\mathbf{z}_g\rVert _2^2=\lVert \mathbf{\hat{z}
 \end{align*}
 $$
 
->后面似乎不是直接这样用
+其中，$\mathbf{z}_p$后面的$\mathbf{v}_{k+1:m}^p$是0；p表示query，g表示gallery
+
+>后面的分类似乎不是直接这样用？
 
 ### Mechanism 2: Resolution-Adaptive Masking
 
-The above varying-length representation only adaptively constructs the resolution-specific representation in the penultimate layer of the neural network. To extract more resolutiondependent features, we propose a mechanism to inject the resolution characteristics into the earlier layers of a neural network.
+The above varying-length representation only adaptively constructs the resolution-specific representation in the **penultimate layer** of the neural network. To extract more resolutiondependent features, we propose a mechanism to inject the resolution characteristics into the earlier layers of a neural network.
 
-![Alt text](image-5.png)
-![Alt text](image-6.png)
-![Alt text](image-7.png)
-![Alt text](image-8.png)
+> 在最后得到Resolution-Adaptive Representations时使用到query分辨率信息，得到representation后还有一步分类，所以是倒数第二层
+
+文章使用残差神经网络，往每一层残差块输出插入mask，mask集合定义为$\{\mathbf{M}_k^l\in \mathbb{R}^{d^l}\},k=1,\cdots,m$；k表示分辨率水平，l表示第l个残差块
+
+Each mask is a vector, with each dimension being a real value between 0 and 1.The mask acts as a dimension-wise scaling factor to the feature maps
+
+按以下公式应用mask
+$$
+\mathbf{\bar{X}}^l=\mathbf{X}^l \odot \mathbf{M}_k^l\\
+$$
+其中$\odot$表示逐元素乘法
+In practice:
+$$
+\begin{align*}
+  &\mathbf{\bar{X}}^l=\mathbf{X}^l \odot (\sum _k s_k^l\mathrm{Sigmoid}(\mathbf{M}_k^l))\\
+  &s_k^l=
+  \begin{cases}
+    1,&\text{if the input image is at resolution level k}\\
+    0,&\text{others}
+  \end{cases}\\
+  &\mathrm{Sigmoid}(x)=\frac{1}{1+e^{-x}}
+\end{align*}
+$$
+实际使用上，$\mathbf{M}_k^l$可能不是0，1之间的，用Sigmoid转换为0，1之间。
+实际使用中，把所有mask放在矩阵中，每列表示分辨率水平k，行表示第l个残差块
+对通道做掩模的解释：`We recall that developing mask generators is equivalent to aligning person images with occlusion, wherein visible patterns from non-occluded images can be selected by corresponding masks to align and compare with occluded regions [3], [4]. It is worth noting that our proposed resolution-dependent masks are applied in a channel-wise manner to reflect the resolution levels in feature dimensions, making them suitable for CRReID`
+
 
 ### Varying-Length Sub-Vectors With Resolution Variations
 
