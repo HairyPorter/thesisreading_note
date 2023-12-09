@@ -14,20 +14,38 @@ In contrast, this paper proposes a method that has its own differences: first, o
 
 ### Problem Statement and Framework Overview
 
-k 表示分辨率水平；与最高的分辨率的长/宽的比例e.g., k ∈ {1, 1/2, 1/3, 1/4}；
+训练的目标是学习resolution-adaptive 度量，如下
+
+$$dist(x_p, x_g) = M(x_p, x_g, k)$$
+
+其中M是训练的模型，x_p是query，x_g是gallery，k 表示分辨率比例——与最高的分辨率的长/宽的比例e.g., k ∈ {1, 1/2, 1/3, 1/4}；
+k使得此度量是resolution-adaptive
 
 For example, if the highest resolution corresponds to 256 × 128 per person image, i.e., its resolution ratio k = 1, for a LR image of size 64×32, its resolution ratio becomes k = 1/4.
 
 In our algorithm, we resize all the images, whether LR or HR,to equal to the size of the highest resolution images via bilinear up-sampling. Then, each full-resolution image is down-sampled at different specified ratios to form its LR alternations.
 
-$dist(x_p, x_g) = M(x_p, x_g, k)$
+>训练中使用的LR也是人工生成的——HR减采样再双线性插值——将所有图像resize到同一大小，也许是方便训练
 
-假设k是可预测的；
+假设分辨率k是可预测的；
+
 We assume that the resolutions of both the query and gallery images are provided. In practice, the resolution could be estimated from the size (number of pixels) of images or pedestrian bounding boxes since the height of people is relatively fixed
 
-However, since the resolution of the query image is not fixed, learning resolution-invariant features will identify discriminative information that are shared across all resolutions. Consequently, the information specific to resolutions higher than the lowest one will not be preserved.
+关于M的实现，M学习resolution-adaptive表示，通过一下两个机制实现:
 
-### Mechanism 1: Learning Varying-Length
+- varying-length representation
+  - varying dimensions to encode a query image
+- injecting resolutionspecific masks
+  - inject into the intermediate residual feature blocks
+  - to further extract resolution-specific information
+
+resolution-adaptive representations与resolution-invariant features对比：`However, since the resolution of the query image is not fixed, learning resolution-invariant features will identify discriminative information that are shared across all resolutions. Consequently, the information specific to resolutions higher than the lowest one will not be preserved.This inevitably prevent the network from using more information for matching a moderate LR query to HR gallery images.`
+
+### Mechanism 1: Learning Varying-Length Resolution-Adaptive Representations
+
+![f1](image-14.png)
+
+**motivation:**`a HR image should contain all the information conveyed in the LR image, but also extra information from the higher resolution`
 
 we define m sub-vectors {$v_k$ }, k = 1, · · · , m
 一个可变长度的特征，用多个可变维度向量表示；每个子向量$v_k$表示对应分辨率k的特征
