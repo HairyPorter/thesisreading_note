@@ -69,7 +69,7 @@ $$
 
 其中，$\mathbf{z}_p$后面的$\mathbf{v}_{k+1:m}^p$是0；p表示query，g表示gallery
 
->后面的分类似乎不是直接这样用？
+>后面的分类似乎不是直接这样用？或许这里的距离并不是欧氏距离
 
 ### Mechanism 2: Resolution-Adaptive Masking
 
@@ -102,17 +102,48 @@ $$
 实际使用中，把所有mask放在矩阵中，每列表示分辨率水平k，行表示第l个残差块
 对通道做掩模的解释：`We recall that developing mask generators is equivalent to aligning person images with occlusion, wherein visible patterns from non-occluded images can be selected by corresponding masks to align and compare with occluded regions [3], [4]. It is worth noting that our proposed resolution-dependent masks are applied in a channel-wise manner to reflect the resolution levels in feature dimensions, making them suitable for CRReID`
 
-
 ### Varying-Length Sub-Vectors With Resolution Variations
+
+Since the LR image shares content with the original HR image but also contains its own characteristics, the feature vector of each image should be a combination of commonality and resolution-induced characteristics.
 
 However, a deep feature representation outputted from neural networks has a fixed-size dimension, making it challenging to define varied feature dimension corresponding to different resolution levels.
 
-![Alt text](image-9.png)
-![Alt text](image-10.png)
-![Alt text](image-11.png)$\mathbb{R}^{d\times C}$
-![Alt text](image-12.png)
-$\mathbf{e}^k=$![Alt text](image-13.png)
+> representation **z**是多个子向量的拼接，是变长的，与分辨率水平相关，而神经网络输出的是固定维数的
+
+To overcome this challenge, we propose to predict a set of sub-vectors, where the number of sub-vectors corresponds to the resolution.
+Specifically, we train a classifier consisting of a set of sub-classifiers, such that an image at a resolution looks up the sub-classifiers to adaptively characterise its own features
+
+representaion **v**(或者是之前的**z**)用一系列子向量表示，也要训练包含一系列子分类器的分类器**W**，用**e**进行分类预测
+
+$$
+\begin{align*}
+  \mathbf{v}&=cat(\mathbf{v}_1,\cdots ,\mathbf{v}_k,\cdots,\mathbf{v}_m)\in \mathbb{R}^d,~
+  \mathbf{v}_k\in \mathbb{R}^{d_k}\\
+  \mathbf{W}&=cat(\mathbf{w}^1,\cdots ,\mathbf{w}^k,\cdots,\mathbf{w}^C)\in \mathbb{R}^{d\times C},~
+  \mathbf{w}^k\in \mathbb{R}^{d_k\times C}\\
+  \mathbf{e}^k&=(\mathbf{w}^k)^T\mathbf{v}_k~\in \mathbb{R}^C
+\end{align*}
+$$
+
+> 此处用**v**表示特征，应该是和之前的**z**是一个东西，而且这里改用cat更好，保持一致
+
+Since the identity prediction classifies each image by evaluating the classifier w k into the embedding space, the classifier can be interpreted as the prototype closest to the image in the feature space.
+
+> **e**实际上是向量**v,w**的点积，**v**越接近**w**，**e**越大，所以说**w**是在embedding空间中最接近图像的原型；具体**e**是怎么使用呢，似乎不是越大越接近图像
 
 ### Resolution-Adaptive Representation Training
 
+训练模型使用的loss:
+
+- identity loss
+  - softmax 之后再求 交叉熵(cross-entropy)
+- verification loss
+  - sdf
+
+![loss](image-16.png)
+
+
+
 we propose to apply zero-padding, i.e., concatenating “0” to the representation whose dimension is less than the maximal dimension, to convert a varying-length representation to a fixed-length representation.
+
+![Algorithm1](image-15.png)
