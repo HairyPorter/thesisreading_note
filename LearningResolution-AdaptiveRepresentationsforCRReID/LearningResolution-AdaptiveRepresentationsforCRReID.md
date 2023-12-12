@@ -125,25 +125,49 @@ $$
 \end{align*}
 $$
 
-> 此处用**v**表示特征，应该是和之前的**z**是一个东西，而且这里改用cat更好，保持一致
+> 此处用**v**表示特征，应该是和之前的**z**是一个东西，而且这里改用cat更好，保持一致；文章后续**v**与**z**似乎混用了
 
 Since the identity prediction classifies each image by evaluating the classifier w k into the embedding space, the classifier can be interpreted as the prototype closest to the image in the feature space.
 
 > **e**实际上是向量**v,w**的点积，**v**越接近**w**，**e**越大，所以说**w**是在embedding空间中最接近图像的原型；具体**e**是怎么使用呢，似乎不是越大越接近图像
+>**e**做softmax应该会得到那个分类结果的one-hot向量，就是分类结果
 
 ### Resolution-Adaptive Representation Training
 
 训练模型使用的loss:
 
-- identity loss
+- identity loss $\mathcal{L}_{cls}$
   - softmax 之后再求 交叉熵(cross-entropy)
-- verification loss
-  - sdf
+- verification loss $\mathcal{L}_{verif}$
+  - applied to a binary classifier that predicts whether two samples belong to the same class
+
+$$
+\mathcal{L}_{verif}=-\sum _n^N[y_n\mathrm{log}(p(y_n=1|\mathbf{v}_{ij}))\\
++(1-y_n)\mathrm{log}(1-p(y_n=1|\mathbf{v}_{ij}))]\\
+\mathbf{v}_{ij}=\mathbf{v}_{i}-\mathbf{v}_{j}\\
+\mathcal{L}_{cls}+\lambda\mathcal{L}_{verif}
+$$
+
+实验中，$p(y_n=1|\mathbf{v}_{ij})=Sigmoid(f(\mathbf{v}_{ij}))$，是MLP的输出
+
+In our implementation, we start by padding zeros to the varying-length representations of two images, and send their feature vector difference to a multi-layer perceptron (MLP) to make a **binary prediction** about whether those two samples are from the same class
 
 ![loss](image-16.png)
 
+#### Analysis of the Identity Classification Loss
 
+>这里解释为什么这两个loss可以有利于resolution-adaptive metric learning；没看懂为什么verification loss 可以learn a resolution-adaptive metric naturally
+
+The verification loss takes inputs from two images from different or same resolutions. It can learn a resolution-adaptive metric naturally
+
+> 应该是因为MLP输入的是$\mathbf{v}_{ij}=\mathbf{v}_{i}-\mathbf{v}_{j}$(或者说是**z**)，直接相减有距离的概念和前面想要求的dist呼应？好像也不是，要呼应**变长、分辨率自适应**
 
 we propose to apply zero-padding, i.e., concatenating “0” to the representation whose dimension is less than the maximal dimension, to convert a varying-length representation to a fixed-length representation.
+
+The ID loss will encourage samples from the same identity class to move closer to the corresponding classifier w and thus indirectly pulling those features close to each other.Similarly, we could expect our ID loss will pull $\mathbf{z}_k$ and the first k-th sub-vectors of $\mathbf{z}_{k'},k' >k$ close to each other, which ensures that images of the same identity but different resolutions become closer under the proposed distance metric Eq.
+
+> 对于ID loss，会对得到**z**进行补零使得长度一致；**W**与**z**做内积，补的零可以使得与分类结果与分辨率相关；各自分辨率中，**z**会靠近，不同分辨率的**z**也会靠近
+
+
 
 ![Algorithm1](image-15.png)
