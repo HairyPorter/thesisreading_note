@@ -150,13 +150,15 @@ $$
 
 实验中，$p(y_n=1|\mathbf{v}_{ij})=Sigmoid(f(\mathbf{v}_{ij}))$，是MLP的输出
 
+> 文中提到MLP输出是 scale 而这里分类器的输出**e**应该是 onehot 向量，难道是再训练一个不同的分类器？
+
 In our implementation, we start by padding zeros to the varying-length representations of two images, and send their feature vector difference to a multi-layer perceptron (MLP) to make a **binary prediction** about whether those two samples are from the same class
 
 ![loss](image-16.png)
 
 #### Analysis of the Identity Classification Loss
 
->这里解释为什么这两个loss可以有利于resolution-adaptive metric learning；没看懂为什么verification loss 可以learn a resolution-adaptive metric naturally
+> 这里解释为什么这两个loss可以有利于resolution-adaptive metric learning；没看懂为什么verification loss 可以 learn a resolution-adaptive metric naturally
 
 The verification loss takes inputs from two images from different or same resolutions. It can learn a resolution-adaptive metric naturally
 
@@ -168,6 +170,16 @@ The ID loss will encourage samples from the same identity class to move closer t
 
 > 对于ID loss，会对得到**z**进行补零使得长度一致；**W**与**z**做内积，补的零可以使得与分类结果与分辨率相关；各自分辨率中，**z**会靠近，不同分辨率的**z**也会靠近
 
+#### Progressive Training for Resolution-Adaptive Masks
 
+文章指出想要联合对两个机制进行优化，而传统的stochastic gradient descent(随机梯度下降)，因为对不共享掩码进行优化困难，会导致性能受损。此外，不同层的通道掩码是高度相关的，并且由于共适应问题，训练这些掩码变得不重要。
+
+为了解决这个问题，我们提出了一个有效的渐进式培训计划。我们建议在不同的层顺序注入掩模，并逐步训练它们，以避免多个掩模的协同适应
+
+在我们的实现中，我们首先将掩模制作成最靠近分类器层的残差块，然后将更多的掩模向下逐渐乘以残差块以降低。一旦新的掩码被编织到剩余块，用以前更高级别训练过的掩码将被固定，不再更新。
+
+整个训练算法如下
 
 ![Algorithm1](image-15.png)
+
+## IMPLEMENTATION DETAILS
